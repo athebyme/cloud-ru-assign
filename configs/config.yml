@@ -2,5 +2,14 @@ listenAddress: ":8080"
 backends:
   - "http://localhost:8081"
   - "http://localhost:8082"
-  - "http://localhost:8083"
-  - "http://localhost:8084"
+  - "http://localhost:9999"
+
+log:
+  level: "info"
+  format: "text"
+
+healthCheck:
+  enabled: true
+  interval: "10s"
+  timeout: "2s"
+  path: "/health"
