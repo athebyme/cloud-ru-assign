@@ -47,6 +47,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("ошибка парсинга YAML %s: %w", configPath, err)
 	}
 
+	// нормализуем значения конфига логов
 	conf.Log.Level = strings.ToLower(conf.Log.Level)
 	conf.Log.Format = strings.ToLower(conf.Log.Format)
 	if conf.Log.Level == "" {
@@ -56,6 +57,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		conf.Log.Format = "text"
 	}
 
+	// валидация обязательных полей
 	if len(conf.Backends) == 0 {
 		return nil, fmt.Errorf("в конфигурации %s не указаны бэкенды ('backends')", configPath)
 	}
@@ -63,6 +65,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("в конфигурации %s не указан адрес для прослушивания ('listenAddress')", configPath)
 	}
 
+	// проверка на дубликаты бэкендов
 	seen := make(map[string]bool)
 	var uniqueBackends []string
 	for _, backend := range conf.Backends {
@@ -70,11 +73,14 @@ func LoadConfig(configPath string) (*Config, error) {
 			seen[backend] = true
 			uniqueBackends = append(uniqueBackends, backend)
 		} else {
+			// ошибка при обнаружении дубликата, в теории как бы можно еще просто "всхлопывать"
+			// дубликаты в 1, но оставлю проброс ошибки выше
 			return nil, fmt.Errorf("обнаружен дублирующийся адрес бэкенда в конфигурации: %s", backend)
 		}
 	}
 	conf.Backends = uniqueBackends
 
+	// валидация конфигурации health check'ов
 	if conf.HealthCheck.Enabled {
 		if conf.HealthCheck.Interval <= 0 {
 			return nil, fmt.Errorf("healthCheck.interval должен быть положительным значением")
@@ -83,7 +89,8 @@ func LoadConfig(configPath string) (*Config, error) {
 			return nil, fmt.Errorf("healthCheck.timeout должен быть положительным значением")
 		}
 		if conf.HealthCheck.Timeout >= conf.HealthCheck.Interval {
-			// return nil, fmt.Errorf("healthCheck.timeout (%v) должен быть меньше healthCheck.interval (%v)", conf.HealthCheck.Timeout, conf.HealthCheck.Interval)
+			// просто предупреждаем, если таймаут слишком большой
+			// тут пришла альтернативная идея давать выброс ошибки наверх
 			fmt.Printf("Предупреждение: healthCheck.timeout (%v) близок или больше healthCheck.interval (%v)\n", conf.HealthCheck.Timeout, conf.HealthCheck.Interval)
 		}
 	}

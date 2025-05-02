@@ -8,20 +8,22 @@ import (
 	"time"
 )
 
+// ServerAdapter управляет жизненным циклом HTTP сервера и направляет запросы в сервис ядра
 type ServerAdapter struct {
-	httpServer *http.Server
-	lbService  ports.LoadBalancerService
+	httpServer *http.Server              // стандартный http сервер по тз
+	lbService  ports.LoadBalancerService // сервис ядра для обработки запросов (входящий порт)
 	logger     ports.Logger
-	done       chan struct{}
+	done       chan struct{} // канал для сигнализации о завершении ListenAndServe
 }
 
+// NewServerAdapter создает новый адаптер HTTP сервера
 func NewServerAdapter(
 	listenAddr string,
-	lbService ports.LoadBalancerService,
+	lbService ports.LoadBalancerService, // DI
 	logger ports.Logger,
 ) *ServerAdapter {
 	adapterLogger := logger.With("adapter", "HTTPServer")
-	mux := http.NewServeMux()
+	mux := http.NewServeMux() // мультиплексор запросов
 
 	mux.HandleFunc("/", lbService.HandleRequest)
 
@@ -43,26 +45,35 @@ func NewServerAdapter(
 	}
 }
 
+// Run запускает прослушивание сервером входящих запросов в отдельной горутине
+// не блокирует выполнение
 func (s *ServerAdapter) Run() {
 	s.logger.Info("HTTP server adapter starting", "address", s.httpServer.Addr)
 	go func() {
-		defer close(s.done)
+		defer close(s.done) // сигнализируем о завершении при выходе
+
+		// ListenAndServe всегда возвращает ошибку, проверяем что это не ErrServerClosed
 		if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			s.logger.Error("HTTP server adapter ListenAndServe error", "error", err)
+			s.logger.Error("ошибка запуска адаптера HTTP сервера", "error", err)
 		} else {
-			s.logger.Info("HTTP server adapter stopped listening.")
+			s.logger.Info("адаптер HTTP сервера прекратил прослушивание")
 		}
 	}()
 }
 
+// Stop корректно останавливает HTTP сервер
 func (s *ServerAdapter) Stop(ctx context.Context) {
-	s.logger.Info("HTTP server adapter initiating graceful shutdown...")
+	s.logger.Info("инициация корректной остановки адаптера HTTP сервера")
+
+	// пытаемся остановить сервер с ожиданием завершения текущих запросов
 	if err := s.httpServer.Shutdown(ctx); err != nil {
-		s.logger.Error("HTTP server adapter graceful shutdown failed", "error", err)
+		s.logger.Error("ошибка при корректной остановке адаптера HTTP сервера", "error", err)
+
+		// если Shutdown не удался, пробуем закрыть принудительно
 		if closeErr := s.httpServer.Close(); closeErr != nil {
-			s.logger.Error("HTTP server adapter forceful close failed", "error", closeErr)
+			s.logger.Error("ошибка при принудительном закрытии адаптера HTTP сервера", "error", closeErr)
 		}
 	} else {
-		s.logger.Info("HTTP server adapter graceful shutdown completed.")
+		s.logger.Info("адаптер HTTP сервера корректно остановлен")
 	}
 }

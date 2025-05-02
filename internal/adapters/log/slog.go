@@ -6,10 +6,14 @@ import (
 	"os"
 )
 
+// SlogAdapter реализует порт ports.Logger, используя стандартный пакет log/slog
 type SlogAdapter struct {
 	logger *slog.Logger
 }
 
+// NewSlogAdapter создает новый адаптер slog логгера
+// levelStr задает минимальный уровень логирования (debug, info, warn, error)
+// isJSON определяет формат вывода (JSON или Text)
 func NewSlogAdapter(levelStr string, isJSON bool) *SlogAdapter {
 	var level slog.Level
 	switch levelStr {
@@ -22,15 +26,15 @@ func NewSlogAdapter(levelStr string, isJSON bool) *SlogAdapter {
 	case "error":
 		level = slog.LevelError
 	default:
-		level = slog.LevelInfo
+		level = slog.LevelInfo // по умолчанию
 	}
 
 	opts := &slog.HandlerOptions{
 		Level:     level,
-		AddSource: true,
+		AddSource: true, // имя файла и строки откуда был вызов
 	}
 
-	var handler slog.Handler
+	var handler slog.Handler // выбираем обработчик (формат вывода)
 	if isJSON {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	} else {
@@ -40,6 +44,8 @@ func NewSlogAdapter(levelStr string, isJSON bool) *SlogAdapter {
 	logger := slog.New(handler)
 	return &SlogAdapter{logger: logger}
 }
+
+// ------------ Реализации для ports.Logger -------------------
 
 func (s *SlogAdapter) Debug(msg string, args ...any) {
 	s.logger.Debug(msg, args...)

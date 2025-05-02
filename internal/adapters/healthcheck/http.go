@@ -8,18 +8,23 @@ import (
 	"time"
 )
 
+// HTTPChecker реализует порт HealthChecker, используя HTTP GET запросы
 type HTTPChecker struct {
 	client  *http.Client
 	timeout time.Duration
 	path    string
 }
 
+// NewHTTPChecker создает новый HTTP health checker
 func NewHTTPChecker(timeout time.Duration, path string) ports.HealthChecker {
 	return &HTTPChecker{
 		client: &http.Client{
 			Timeout: timeout,
 			Transport: &http.Transport{
+				// отключаем keep-alive, тк проверки в данном варианте короткоживущие и редкие
 				DisableKeepAlives: true,
+
+				// можно было бы сделать таймауты для соединений, но в данном варианте упрощено все
 			},
 		},
 		timeout: timeout,
@@ -27,26 +32,31 @@ func NewHTTPChecker(timeout time.Duration, path string) ports.HealthChecker {
 	}
 }
 
+// Check выполняет HTTP GET запрос к целевому URL
 func (c *HTTPChecker) Check(target *url.URL) error {
 	checkURL := target.String()
-	if c.path != "" {
+	if c.path != "" { // если есть конкретный специфичный путь из конфига, он будет != ""
 		checkURL = target.JoinPath(c.path).String()
 	}
 	req, err := http.NewRequest("GET", checkURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create health check request for %s: %w", target, err)
+		// ошибка создания запроса (маловероятно для GET)
+		return fmt.Errorf("не удалось создать запрос health check для %s: %w", target, err)
 	}
-	req.Header.Set("User-Agent", "LoadBalancer-HealthChecker/1.0")
+
+	req.Header.Set("User-Agent", "LoadBalancer-HealthChecker/1.0") // user agent - сервис health checker
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("health check failed for %s: %w", target, err)
+		// сетевая ошибка: таймаут, не удалось подключиться или другие
+		return fmt.Errorf("health check не удался для %s: %w", target, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return nil
+		return nil // здоров
 	}
 
+	// любой другой статус считается ошибкой
 	return fmt.Errorf("health check failed for %s: unexpected status code %d", target, resp.StatusCode)
 }

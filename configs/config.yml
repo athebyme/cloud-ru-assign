@@ -1,8 +1,6 @@
 listenAddress: ":8080"
 backends:
   - "http://localhost:8081"
-  - "http://localhost:8082"
-  - "http://localhost:9999"
 
 log:
   level: "info"
