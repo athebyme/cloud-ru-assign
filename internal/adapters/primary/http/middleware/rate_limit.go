@@ -15,7 +15,6 @@ func RateLimitMiddleware(rateLimiter ports.RateLimiter, logger ports.Logger) fun
 			clientID := getClientID(r)
 
 			if !rateLimiter.Allow(clientID) {
-				// Rate limit exceeded
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 

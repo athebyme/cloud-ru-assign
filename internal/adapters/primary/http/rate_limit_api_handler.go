@@ -42,7 +42,7 @@ func (h *RateLimitAPIHandler) handleClient(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	clientID := r.URL.Path[len("/api/v1/ratelimit/clients/"):]
+	clientID := r.URL.Path[len("/clients/"):]
 	if clientID == "" {
 		http.Error(w, "clientID required", http.StatusBadRequest)
 		return
