@@ -34,7 +34,7 @@ func NewSlogAdapter(levelStr string, isJSON bool) *SlogAdapter {
 		AddSource: true, // имя файла и строки откуда был вызов
 	}
 
-	var handler slog.Handler // выбираем обработчик (формат вывода)
+	var handler slog.Handler
 	if isJSON {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	} else {
@@ -44,8 +44,6 @@ func NewSlogAdapter(levelStr string, isJSON bool) *SlogAdapter {
 	logger := slog.New(handler)
 	return &SlogAdapter{logger: logger}
 }
-
-// ------------ Реализации для ports.Logger -------------------
 
 func (s *SlogAdapter) Debug(msg string, args ...any) {
 	s.logger.Debug(msg, args...)
