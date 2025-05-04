@@ -109,6 +109,10 @@ hey -n 5000 -c 1000 -t 30 http://localhost:8080/
 Total: 0.5775 secs
 Requests/sec: 8658.6625
 ```
+(порт был 8080, затем поменял, тк у меня параллельно запущена кафка ui на 8080 порту, так что в компоузе мап сделал на 8081 внешний -- далее будет)
+![](./source/hey-1.png)
+![](./source/hey-2.png)
+
 
 Нормально держит нагрузку
 
@@ -145,6 +149,9 @@ curl http://localhost:8080/clients
 
 curl -X DELETE http://localhost:8080/clients/user1
 ```
+![пример запроса и ответа от GET клиентов](./source/ratelimit-postman-clients.png)
+![пример блокировки запросов](./source/ratelimit-block-example.png)
+
 
 ## Что мне больше всего понравилось
 

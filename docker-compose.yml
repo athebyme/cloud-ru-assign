@@ -17,12 +17,12 @@ services:
     networks:
       - lb-network
     environment:
-      - TEST_TARGET=loadbalancer:8080
+      - TEST_TARGET=loadbalancer:8081
 
   loadbalancer:
     build: .
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       LOG_LEVEL: info
       STORAGE_TYPE: memory
