@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  e2e-tests:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: ["go", "test", "-v", "-race", "./tests/e2e"]
+    depends_on:
+      loadbalancer:
+        condition: service_healthy
+      backend1:
+        condition: service_started
+      backend2:
+        condition: service_started
+    networks:
+      - lb-network
+    environment:
+      - TEST_TARGET=loadbalancer:8080
+
+  loadbalancer:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      LOG_LEVEL: info
+      STORAGE_TYPE: memory
+    volumes:
+      - ./configs:/app/configs
+    networks:
+      - lb-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend1:
+    image: nginx:alpine
+    volumes:
+      - ./nginx1.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - lb-network
+
+  backend2:
+    image: nginx:alpine
+    volumes:
+      - ./nginx2.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - lb-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ratelimit
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lb-network
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - lb-network
+
+volumes:
+  postgres_data:
+
+networks:
+  lb-network:
+    driver: bridge
