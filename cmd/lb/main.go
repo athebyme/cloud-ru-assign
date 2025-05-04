@@ -3,13 +3,16 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/athebyme/cloud-ru-assign/internal/adapters/load_balancer/healthcheck"
-	logadapter "github.com/athebyme/cloud-ru-assign/internal/adapters/load_balancer/log"
-	"github.com/athebyme/cloud-ru-assign/internal/adapters/load_balancer/pool"
-	"github.com/athebyme/cloud-ru-assign/internal/adapters/load_balancer/proxy"
-	"github.com/athebyme/cloud-ru-assign/internal/adapters/rate_limiter/middleware"
+	ratelimit_http "github.com/athebyme/cloud-ru-assign/internal/adapters/primary/http"
+	"github.com/athebyme/cloud-ru-assign/internal/adapters/primary/http/middleware"
+	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/healthcheck"
+	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/logger"
+	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/proxy"
+	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/rate_limiter/memory"
+	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/repository"
 	"github.com/athebyme/cloud-ru-assign/internal/config"
 	"github.com/athebyme/cloud-ru-assign/internal/core/app"
+	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,38 +29,38 @@ func main() {
 
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
-		bootstrapLogger := logadapter.NewSlogAdapter("error", false)
+		bootstrapLogger := logger.NewSlogAdapter("error", false)
 		bootstrapLogger.Error("не удалось загрузить конфигурацию", "error", err, "path", *configPath)
 		os.Exit(1)
 	}
 
 	// --- инициализация логгера ---
-	logger := logadapter.NewSlogAdapter(cfg.Log.Level, cfg.Log.Format == "json")
-	logger.Info("конфигурация успешно загружена", "config", cfg)
+	slogAdapter := logger.NewSlogAdapter(cfg.Log.Level, cfg.Log.Format == "json")
+	slogAdapter.Info("конфигурация успешно загружена", "config", cfg)
 
 	// --- Dependency Injection ---
 	// 1 инициализируем исходящие адаптеры
-	backendRepo, err := pool.NewMemoryPool(cfg.Backends, logger)
+	backendRepo, err := repository.NewMemoryPool(cfg.Backends, slogAdapter)
 	if err != nil {
-		logger.Error("не удалось создать репозиторий бэкендов", "error", err)
+		slogAdapter.Error("не удалось создать репозиторий бэкендов", "error", err)
 		os.Exit(1)
 	}
-	forwarder := proxy.NewHttpUtilForwarder(logger)
+	forwarder := proxy.NewHttpUtilForwarder(slogAdapter)
 	checker := healthcheck.NewHTTPChecker(cfg.HealthCheck.Timeout, cfg.HealthCheck.Path)
 
 	// 2 инициализируем rate limiter
-	var rateLimiter *ratelimit.MemoryRateLimiter
-	var rateLimitService app.RateLimitService
+	var rateLimiter *memory.MemoryRateLimiter
+	var rateLimitService ports.RateLimitService
 	if cfg.RateLimit.Enabled {
-		rateLimiter = ratelimit.NewMemoryRateLimiter(logger)
-		rateLimitService = app.NewRateLimitService(rateLimiter, logger)
+		rateLimiter = memory.NewMemoryRateLimiter(slogAdapter)
+		rateLimitService = app.NewRateLimitService(rateLimiter, slogAdapter)
 	}
 
 	// 3 инициализируем сервисы приложения
-	lbService := app.NewLoadBalancerService(backendRepo, forwarder, logger)
+	lbService := app.NewLoadBalancerService(backendRepo, forwarder, slogAdapter)
 	var healthMonitor *app.HealthMonitor
 	if cfg.HealthCheck.Enabled {
-		healthMonitor = app.NewHealthMonitor(backendRepo, checker, logger, cfg.HealthCheck.Interval)
+		healthMonitor = app.NewHealthMonitor(backendRepo, checker, slogAdapter, cfg.HealthCheck.Interval)
 	}
 
 	// 4 инициализируем HTTP сервер с middleware
@@ -65,19 +68,19 @@ func main() {
 	if cfg.RateLimit.Enabled && cfg.RateLimit.Middleware {
 		// Оборачиваем lbService.HandleRequest в middleware
 		handler := http.HandlerFunc(lbService.HandleRequest)
-		rateLimitedHandler := middleware.RateLimitMiddleware(rateLimiter, logger)(handler)
+		rateLimitedHandler := middleware.RateLimitMiddleware(rateLimiter, slogAdapter)(handler)
 		mux.Handle("/", rateLimitedHandler)
 
 		// Добавляем API для управления rate limiting
 		if rateLimitService != nil {
-			apiHandler := http.NewRateLimitAPIHandler(rateLimitService, logger)
+			apiHandler := ratelimit_http.NewRateLimitAPIHandler(rateLimitService, slogAdapter)
 			apiHandler.RegisterRoutes(mux)
 		}
 	} else {
 		mux.HandleFunc("/", lbService.HandleRequest)
 	}
 
-	httpAdapter := http.NewServerAdapter(cfg.ListenAddress, lbService, logger)
+	httpAdapter := ratelimit_http.NewServerAdapter(cfg.ListenAddress, lbService, slogAdapter)
 	httpAdapter.Server.Handler = mux
 
 	// --- Запуск компонентов приложения ---
@@ -85,7 +88,7 @@ func main() {
 
 	if healthMonitor != nil {
 		healthMonitor.Start()
-		logger.Info("монитор состояния запущен")
+		slogAdapter.Info("монитор состояния запущен")
 	}
 
 	httpAdapter.Run()
@@ -94,7 +97,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
-	logger.Info("получен сигнал завершения работы", "signal", sig.String())
+	slogAdapter.Info("получен сигнал завершения работы", "signal", sig.String())
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()
@@ -136,10 +139,10 @@ func main() {
 
 	select {
 	case <-waitDone:
-		logger.Info("все компоненты успешно остановлены")
+		slogAdapter.Info("все компоненты успешно остановлены")
 	case <-shutdownCtx.Done():
-		logger.Error("общий таймаут остановки приложения", "error", shutdownCtx.Err())
+		slogAdapter.Error("общий таймаут остановки приложения", "error", shutdownCtx.Err())
 	}
 
-	logger.Info("приложение завершило работу")
+	slogAdapter.Info("приложение завершило работу")
 }

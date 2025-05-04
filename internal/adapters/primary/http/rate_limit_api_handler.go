@@ -1,4 +1,4 @@
-package ratelimit
+package http
 
 import (
 	"encoding/json"
@@ -13,7 +13,6 @@ type RateLimitAPIHandler struct {
 	logger  ports.Logger
 }
 
-// NewRateLimitAPIHandler создает новый обработчик API
 func NewRateLimitAPIHandler(service ports.RateLimitService, logger ports.Logger) *RateLimitAPIHandler {
 	return &RateLimitAPIHandler{
 		service: service,
@@ -21,13 +20,11 @@ func NewRateLimitAPIHandler(service ports.RateLimitService, logger ports.Logger)
 	}
 }
 
-// RegisterRoutes регистрирует маршруты API
 func (h *RateLimitAPIHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/api/v1/ratelimit/clients", h.handleClients)
-	mux.HandleFunc("/api/v1/ratelimit/clients/", h.handleClient)
+	mux.HandleFunc("/clients", h.handleClients)
+	mux.HandleFunc("/clients/", h.handleClient)
 }
 
-// handleClients обрабатывает GET /api/v1/ratelimit/clients и POST /api/v1/ratelimit/clients
 func (h *RateLimitAPIHandler) handleClients(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -39,7 +36,6 @@ func (h *RateLimitAPIHandler) handleClients(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// handleClient обрабатывает DELETE /api/v1/ratelimit/clients/{clientID}
 func (h *RateLimitAPIHandler) handleClient(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

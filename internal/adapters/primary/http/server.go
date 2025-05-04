@@ -1,4 +1,4 @@
-package load_balancer
+package http
 
 import (
 	"context"

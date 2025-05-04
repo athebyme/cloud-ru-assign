@@ -1,4 +1,4 @@
-package logadapter
+package logger
 
 import (
 	"github.com/athebyme/cloud-ru-assign/internal/core/ports"

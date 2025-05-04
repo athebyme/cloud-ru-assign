@@ -1,4 +1,4 @@
-package token_bucket
+package memory
 
 import (
 	"github.com/athebyme/cloud-ru-assign/internal/core/domain/ratelimit"
@@ -40,7 +40,6 @@ func NewMemoryRateLimiter(logger ports.Logger) *MemoryRateLimiter {
 		stopCh:  make(chan struct{}),
 	}
 
-	// Запуск фонового пополнения токенов
 	go rl.refillLoop()
 
 	return rl
@@ -53,7 +52,7 @@ func (rl *MemoryRateLimiter) Allow(clientID string) bool {
 
 	state, exists := rl.clients[clientID]
 	if !exists {
-		return true // По умолчанию разрешаем если нет настроек
+		return true
 	}
 
 	bucket := state.bucket
@@ -71,7 +70,7 @@ func (rl *MemoryRateLimiter) Allow(clientID string) bool {
 }
 
 // SetRateLimit устанавливает настройки для клиента
-func (rl *MemoryRateLimiter) SetRateLimit(clientID string, settings *ratelimit.RateLimitSettings) {
+func (rl *MemoryRateLimiter) SetRateLimit(clientID string, settings *ratelimit.RateLimitSettings) error {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -88,6 +87,8 @@ func (rl *MemoryRateLimiter) SetRateLimit(clientID string, settings *ratelimit.R
 	}
 
 	rl.logger.Info("Rate limit set for client", "client", clientID, "capacity", settings.Capacity, "rate", settings.RatePerSecond)
+
+	return nil
 }
 
 // RemoveRateLimit удаляет ограничения для клиента

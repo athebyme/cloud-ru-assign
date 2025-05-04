@@ -23,7 +23,6 @@ func NewHTTPChecker(timeout time.Duration, path string) ports.HealthChecker {
 			Transport: &http.Transport{
 				// отключаем keep-alive, тк проверки в данном варианте короткоживущие и редкие
 				DisableKeepAlives: true,
-
 				// можно было бы сделать таймауты для соединений, но в данном варианте упрощено все
 			},
 		},

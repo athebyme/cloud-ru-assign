@@ -40,7 +40,11 @@ func (s *rateLimitService) CreateOrUpdateClient(settings *ratelimit.RateLimitSet
 	defer s.mu.Unlock()
 
 	s.settings[settings.ClientID] = settings
-	s.limiter.SetRateLimit(settings.ClientID, settings)
+
+	err := s.limiter.SetRateLimit(settings.ClientID, settings)
+	if err != nil {
+		return err
+	}
 
 	s.logger.Info("Rate limit settings updated", "client", settings.ClientID)
 	return nil
