@@ -94,17 +94,22 @@ func main() {
 	})
 
 	if cfg.RateLimit.Enabled && cfg.RateLimit.Middleware {
-		handler := http.HandlerFunc(lbService.HandleRequest)
-		rateLimitedHandler := middleware.RateLimitMiddleware(rateLimiter, slogAdapter)(handler)
-		mux.Handle("/", rateLimitedHandler)
+		mainHandler := http.HandlerFunc(lbService.HandleRequest)
+		rateLimitedMainHandler := middleware.RateLimitMiddleware(rateLimiter, slogAdapter)(mainHandler)
 
 		if rateLimitService != nil {
+			apiMux := http.NewServeMux()
 			apiHandler := ratelimit_http.NewRateLimitAPIHandler(rateLimitService, slogAdapter)
-			apiHandler.RegisterRoutes(mux)
+			apiHandler.RegisterRoutes(apiMux)
+
+			mux.Handle("/api/v1/ratelimit/", http.StripPrefix("/api/v1/ratelimit", apiMux))
+			slogAdapter.Info("маршруты API с ограниченным тарифом, зарегистрированные в /api/v1/ratelimit/")
 		}
+
+		mux.Handle("/", rateLimitedMainHandler)
+
 	} else {
 		mux.HandleFunc("/", lbService.HandleRequest)
-
 	}
 
 	httpAdapter := ratelimit_http.NewServerAdapter(cfg.ListenAddress, lbService, slogAdapter)
