@@ -1,3 +1,4 @@
+//go:generate mockgen -source=driven.go -destination=../../test/mocks/driven_mock.go -package=mocks
 package ports
 
 import (

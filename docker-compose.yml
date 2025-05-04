@@ -2,9 +2,11 @@ version: '3.8'
 
 services:
   e2e-tests:
-    build:
-      context: .
-      dockerfile: Dockerfile.e2e
+    image: golang:1.22
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: ["go", "test", "-v", "-race", "./tests/e2e"]
     depends_on:
       loadbalancer:
         condition: service_healthy
@@ -18,12 +20,8 @@ services:
         condition: service_healthy
     networks:
       - lb-network
-    volumes:
-      - ./tests:/tests
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TEST_TARGET=http://loadbalancer:8080
-    command: ["go", "test", "-v", "-race", "./tests/e2e"]
+      - TEST_TARGET=loadbalancer:8080
 
   loadbalancer:
     build: .
@@ -36,7 +34,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       REDIS_ADDR: redis:6379
-      STORAGE_TYPE: hybrid  # или memory
+      STORAGE_TYPE: hybrid
     volumes:
       - ./configs:/app/configs
     depends_on:
@@ -47,7 +45,7 @@ services:
     networks:
       - lb-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -70,8 +68,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
