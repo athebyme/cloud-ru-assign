@@ -1,7 +1,7 @@
 listenAddress: ":8080"
 backends:
-  - "http://backend1"
-  - "http://backend2"
+  - "http://backend1:80"
+  - "http://backend2:80"
 
 log:
   level: "info"

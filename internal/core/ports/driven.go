@@ -44,6 +44,6 @@ type Forwarder interface {
 type RateLimiter interface {
 	Allow(clientID string) bool
 	SetRateLimit(clientID string, settings *ratelimit.RateLimitSettings) error
-	RemoveRateLimit(clientID string)
+	RemoveRateLimit(clientID string) error
 	Stop()
 }

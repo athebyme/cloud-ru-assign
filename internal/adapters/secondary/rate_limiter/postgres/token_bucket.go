@@ -140,15 +140,18 @@ func (r *PostgresRateLimiter) SetRateLimit(clientID string, settings *ratelimit.
 }
 
 // RemoveRateLimit удаляет ограничения для клиента
-func (r *PostgresRateLimiter) RemoveRateLimit(clientID string) {
+func (r *PostgresRateLimiter) RemoveRateLimit(clientID string) error {
 	ctx := context.Background()
 
 	_, err := r.db.ExecContext(ctx, "DELETE FROM rate_limits WHERE client_id = $1", clientID)
 	if err != nil {
 		r.logger.Error("Failed to remove rate limit", "error", err, "client", clientID)
+		return err
 	} else {
 		r.logger.Info("Rate limit removed", "client", clientID)
 	}
+
+	return nil
 }
 
 func (r *PostgresRateLimiter) Stop() {

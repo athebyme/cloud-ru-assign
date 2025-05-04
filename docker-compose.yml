@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   e2e-tests:
-    image: golang:1.22
+    image: golang:1.23
     working_dir: /app
     volumes:
       - ./:/app
@@ -14,10 +14,6 @@ services:
         condition: service_started
       backend2:
         condition: service_started
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - lb-network
     environment:
@@ -29,26 +25,30 @@ services:
       - "8080:8080"
     environment:
       LOG_LEVEL: info
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: ratelimit
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      REDIS_ADDR: redis:6379
-      STORAGE_TYPE: hybrid
+      STORAGE_TYPE: memory
     volumes:
       - ./configs:/app/configs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - lb-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend1:
+    image: nginx:alpine
+    volumes:
+      - ./nginx1.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - lb-network
+
+  backend2:
+    image: nginx:alpine
+    volumes:
+      - ./nginx2.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - lb-network
 
   postgres:
     image: postgres:15-alpine
@@ -58,42 +58,13 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - lb-network
 
   redis:
     image: redis:7-alpine
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - lb-network
-
-  backend1:
-    image: nginx:alpine
-    ports:
-      - "8081:80"
-    volumes:
-      - ./nginx1.conf:/etc/nginx/conf.d/default.conf
-    networks:
-      - lb-network
-
-  backend2:
-    image: nginx:alpine
-    ports:
-      - "8082:80"
-    volumes:
-      - ./nginx2.conf:/etc/nginx/conf.d/default.conf
-    networks:
-      - lb-network
-
 
 volumes:
   postgres_data:

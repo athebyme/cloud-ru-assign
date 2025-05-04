@@ -20,7 +20,7 @@ type ServerAdapter struct {
 // NewServerAdapter создает новый адаптер HTTP сервера
 func NewServerAdapter(
 	listenAddr string,
-	lbService ports.LoadBalancerService, // DI
+	lbService ports.LoadBalancerService,
 	logger ports.Logger,
 ) *ServerAdapter {
 	adapterLogger := logger.With("adapter", "HTTPServer")

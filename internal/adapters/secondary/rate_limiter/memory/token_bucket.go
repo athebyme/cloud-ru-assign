@@ -92,12 +92,13 @@ func (rl *MemoryRateLimiter) SetRateLimit(clientID string, settings *ratelimit.R
 }
 
 // RemoveRateLimit удаляет ограничения для клиента
-func (rl *MemoryRateLimiter) RemoveRateLimit(clientID string) {
+func (rl *MemoryRateLimiter) RemoveRateLimit(clientID string) error {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
 	delete(rl.clients, clientID)
 	rl.logger.Info("Rate limit removed for client", "client", clientID)
+	return nil
 }
 
 // refillLoop пополняет токены для всех клиентов

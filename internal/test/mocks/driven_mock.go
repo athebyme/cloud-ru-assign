@@ -352,9 +352,11 @@ func (mr *MockRateLimiterMockRecorder) Allow(clientID interface{}) *gomock.Call 
 }
 
 // RemoveRateLimit mocks base method.
-func (m *MockRateLimiter) RemoveRateLimit(clientID string) {
+func (m *MockRateLimiter) RemoveRateLimit(clientID string) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RemoveRateLimit", clientID)
+	ret := m.ctrl.Call(m, "RemoveRateLimit", clientID)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // RemoveRateLimit indicates an expected call of RemoveRateLimit.

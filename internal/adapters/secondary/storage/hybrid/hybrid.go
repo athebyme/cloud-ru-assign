@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/athebyme/cloud-ru-assign/internal/core/domain/ratelimit"
 	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
 	"github.com/go-redis/redis/v8"
@@ -20,10 +21,12 @@ type HybridRateLimiter struct {
 	logger ports.Logger
 }
 
+var _ ports.RateLimiter = (*HybridRateLimiter)(nil)
+
 func NewHybridRateLimiter(pgConnStr string, redisAddr string, logger ports.Logger) (*HybridRateLimiter, error) {
 	db, err := sql.Open("postgres", pgConnStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("не удалось открыть соединение postgres: %w", err)
 	}
 
 	rdb := redis.NewClient(&redis.Options{
@@ -32,14 +35,22 @@ func NewHybridRateLimiter(pgConnStr string, redisAddr string, logger ports.Logge
 	})
 
 	if err := db.Ping(); err != nil {
-		return nil, err
+		db.Close()
+		return nil, fmt.Errorf("не удалось пингануть postgres: %w", err)
 	}
-	if err := rdb.Ping(context.Background()).Err(); err != nil {
-		return nil, err
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		db.Close()
+		rdb.Close()
+		return nil, fmt.Errorf("не удалось пингануть redis: %w", err)
 	}
 
 	if err := createSchema(db); err != nil {
-		return nil, err
+		db.Close()
+		rdb.Close()
+		return nil, fmt.Errorf("не удалось создать схему базы данных: %w", err)
 	}
 
 	return &HybridRateLimiter{
@@ -47,6 +58,43 @@ func NewHybridRateLimiter(pgConnStr string, redisAddr string, logger ports.Logge
 		redis:  rdb,
 		logger: logger.With("component", "HybridRateLimiter"),
 	}, nil
+}
+
+func (h *HybridRateLimiter) RemoveRateLimit(clientID string) error {
+	ctx := context.Background()
+	var combinedErr error
+
+	result, err := h.db.ExecContext(ctx, `DELETE FROM rate_limit_settings WHERE client_id = $1`, clientID)
+	if err != nil {
+		h.logger.Error("Не удалось удалить настройки лимита скорости из PostgreSQL", "clientID", clientID, "error", err)
+		combinedErr = fmt.Errorf("не удалось удалить настройки из БД: %w", err)
+	} else {
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected > 0 {
+			h.logger.Info("Настройки лимита скорости удалены из PostgreSQL", "clientID", clientID, "rowsAffected", rowsAffected)
+		} else {
+			h.logger.Info("Настройки лимита скорости для удаления не найдены в PostgreSQL", "clientID", clientID)
+		}
+	}
+
+	keysToDelete := []string{
+		"ratelimit:settings:" + clientID,
+		"ratelimit:" + clientID + ":tokens",
+		"ratelimit:" + clientID + ":last_refill",
+	}
+	deletedCount, redisErr := h.redis.Del(ctx, keysToDelete...).Result()
+	if redisErr != nil {
+		h.logger.Error("Не удалось удалить ключи лимита скорости из Redis", "clientID", clientID, "keys", keysToDelete, "error", redisErr)
+		if combinedErr != nil {
+			combinedErr = fmt.Errorf("%w; не удалось удалить ключи из Redis: %w", combinedErr, redisErr)
+		} else {
+			combinedErr = fmt.Errorf("не удалось удалить ключи из Redis: %w", redisErr)
+		}
+	} else {
+		h.logger.Info("Ключи лимита скорости удалены из Redis", "clientID", clientID, "keys", keysToDelete, "count", deletedCount)
+	}
+
+	return combinedErr
 }
 
 // Allow использует Redis Lua script для атомарной проверки токенов

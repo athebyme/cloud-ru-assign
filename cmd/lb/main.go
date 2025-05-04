@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	ratelimit_http "github.com/athebyme/cloud-ru-assign/internal/adapters/primary/http"
 	"github.com/athebyme/cloud-ru-assign/internal/adapters/primary/http/middleware"
 	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/healthcheck"
@@ -10,6 +11,7 @@ import (
 	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/proxy"
 	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/rate_limiter/memory"
 	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/repository"
+	"github.com/athebyme/cloud-ru-assign/internal/adapters/secondary/storage/hybrid"
 	"github.com/athebyme/cloud-ru-assign/internal/config"
 	"github.com/athebyme/cloud-ru-assign/internal/core/app"
 	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
@@ -49,10 +51,29 @@ func main() {
 	checker := healthcheck.NewHTTPChecker(cfg.HealthCheck.Timeout, cfg.HealthCheck.Path)
 
 	// 2 инициализируем rate limiter
-	var rateLimiter *memory.MemoryRateLimiter
+	var rateLimiter ports.RateLimiter
 	var rateLimitService ports.RateLimitService
 	if cfg.RateLimit.Enabled {
-		rateLimiter = memory.NewMemoryRateLimiter(slogAdapter)
+		storageType := os.Getenv("STORAGE_TYPE")
+
+		switch storageType {
+		case "hybrid":
+			pgConnStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+				os.Getenv("POSTGRES_HOST"),
+				os.Getenv("POSTGRES_USER"),
+				os.Getenv("POSTGRES_PASSWORD"),
+				os.Getenv("POSTGRES_DB"))
+
+			redisAddr := os.Getenv("REDIS_ADDR")
+			rateLimiter, err = hybrid.NewHybridRateLimiter(pgConnStr, redisAddr, slogAdapter)
+			if err != nil {
+				slogAdapter.Error("не удалось создать hybrid rate limiter", "error", err)
+				os.Exit(1)
+			}
+		default:
+			rateLimiter = memory.NewMemoryRateLimiter(slogAdapter)
+		}
+
 		rateLimitService = app.NewRateLimitService(rateLimiter, slogAdapter)
 	}
 
@@ -65,19 +86,25 @@ func main() {
 
 	// 4 инициализируем HTTP сервер с middleware
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK\n"))
+	})
+
 	if cfg.RateLimit.Enabled && cfg.RateLimit.Middleware {
-		// Оборачиваем lbService.HandleRequest в middleware
 		handler := http.HandlerFunc(lbService.HandleRequest)
 		rateLimitedHandler := middleware.RateLimitMiddleware(rateLimiter, slogAdapter)(handler)
 		mux.Handle("/", rateLimitedHandler)
 
-		// Добавляем API для управления rate limiting
 		if rateLimitService != nil {
 			apiHandler := ratelimit_http.NewRateLimitAPIHandler(rateLimitService, slogAdapter)
 			apiHandler.RegisterRoutes(mux)
 		}
 	} else {
 		mux.HandleFunc("/", lbService.HandleRequest)
+
 	}
 
 	httpAdapter := ratelimit_http.NewServerAdapter(cfg.ListenAddress, lbService, slogAdapter)
