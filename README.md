@@ -123,7 +123,7 @@ Requests/sec: 8658.6625
 ```bash
 docker-compose up --build
 
-curl http://localhost:8080
+curl http://localhost:8081
 
 docker-compose run e2e-tests
 ```
@@ -141,13 +141,13 @@ go test -bench=. -race ./tests/integration
 ## API для rate limiting
 
 ```bash
-curl -X POST http://localhost:8080/clients \
+curl -X POST http://localhost:8081/api/v1/clients \
   -H "Content-Type: application/json" \
   -d '{"client_id": "user1", "capacity": 100, "rate_per_second": 10}'
 
-curl http://localhost:8080/clients
+curl http://localhost:8081/api/v1/clients
 
-curl -X DELETE http://localhost:8080/clients/user1
+curl -X DELETE http://localhost:8081/api/v1/clients/user1
 ```
 ![пример запроса и ответа от GET клиентов](./source/ratelimit-postman-clients.png)
 ![пример блокировки запросов](./source/ratelimit-block-example.png)
@@ -168,3 +168,4 @@ curl -X DELETE http://localhost:8080/clients/user1
 5. Dynamic configuration reload
 6. Кейклок аутентификацию (либо какую нибудь dumb jwt реализацию)
 7. Вынес бы ошибки в ошибки сервисов, для переиспользования
+8. Swagger
