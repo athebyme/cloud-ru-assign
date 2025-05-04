@@ -1,8 +1,8 @@
 package healthcheck
 
 import (
-	"cloud-ru-assign/internal/core/ports"
 	"fmt"
+	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
 	"net/http"
 	"net/url"
 	"time"

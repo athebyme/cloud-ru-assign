@@ -1,8 +1,8 @@
 package app
 
 import (
-	"cloud-ru-assign/internal/core/ports"
 	"errors"
+	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
 	"net/http"
 	"time"
 )

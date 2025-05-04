@@ -1,4 +1,4 @@
-package domain
+package balancer
 
 import "net/url"
 

@@ -1,9 +1,9 @@
 package app
 
 import (
-	"cloud-ru-assign/internal/core/domain"
-	"cloud-ru-assign/internal/core/ports"
 	"context"
+	"github.com/athebyme/cloud-ru-assign/internal/core/domain/balancer"
+	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
 	"sync"
 	"time"
 )
@@ -69,7 +69,7 @@ func (hm *HealthMonitor) performChecks() {
 		checkWg.Add(1)
 
 		// запускаем проверку каждого бэкенда в отдельной горутине
-		go func(b *domain.Backend) {
+		go func(b *balancer.Backend) {
 			defer checkWg.Done()
 			checkLogger := hm.logger.With("backend_url", b.URL.String()) // логгер с контекстом бэкенда
 

@@ -1,9 +1,9 @@
 package proxy
 
 import (
-	"cloud-ru-assign/internal/core/domain"
-	"cloud-ru-assign/internal/core/ports"
 	"fmt"
+	"github.com/athebyme/cloud-ru-assign/internal/core/domain/balancer"
+	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
 	"net/http"
 	"net/http/httputil"
 	"sync"
@@ -23,7 +23,7 @@ func NewHttpUtilForwarder(logger ports.Logger) ports.Forwarder {
 
 // Forward реализует ports.Forwarder
 // проксирует запрос r на бэкенд target, используя w для ответа
-func (f *HttpUtilForwarder) Forward(w http.ResponseWriter, r *http.Request, target *domain.Backend) error {
+func (f *HttpUtilForwarder) Forward(w http.ResponseWriter, r *http.Request, target *balancer.Backend) error {
 	// создаем реверс-прокси для конкретного бэкенда
 	proxy := httputil.NewSingleHostReverseProxy(target.URL)
 	proxyLogger := f.logger.With("target_url", target.URL.String())

@@ -1,19 +1,20 @@
-package http
+package load_balancer
 
 import (
-	"cloud-ru-assign/internal/core/ports"
 	"context"
 	"errors"
+	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
 	"net/http"
 	"time"
 )
 
 // ServerAdapter управляет жизненным циклом HTTP сервера и направляет запросы в сервис ядра
 type ServerAdapter struct {
-	httpServer *http.Server              // стандартный http сервер по тз
-	lbService  ports.LoadBalancerService // сервис ядра для обработки запросов (входящий порт)
+	httpServer *http.Server
+	lbService  ports.LoadBalancerService
 	logger     ports.Logger
-	done       chan struct{} // канал для сигнализации о завершении ListenAndServe
+	done       chan struct{}
+	Server     *http.Server
 }
 
 // NewServerAdapter создает новый адаптер HTTP сервера
@@ -42,6 +43,7 @@ func NewServerAdapter(
 		lbService:  lbService,
 		logger:     adapterLogger,
 		done:       make(chan struct{}),
+		Server:     srv,
 	}
 }
 

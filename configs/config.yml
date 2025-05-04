@@ -1,6 +1,7 @@
 listenAddress: ":8080"
 backends:
-  - "http://localhost:8081"
+  - "http://backend1"
+  - "http://backend2"
 
 log:
   level: "info"
@@ -11,3 +12,12 @@ healthCheck:
   interval: "10s"
   timeout: "2s"
   path: "/health"
+
+rateLimit:
+  enabled: true
+  middleware: true
+  defaultCapacity: 100
+  defaultRatePerSecond: 10
+
+loadBalancer:
+  strategy: "round-robin"  # или "least-connections", "random"

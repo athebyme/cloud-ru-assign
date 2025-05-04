@@ -1,7 +1,7 @@
 package logadapter
 
 import (
-	"cloud-ru-assign/internal/core/ports"
+	"github.com/athebyme/cloud-ru-assign/internal/core/ports"
 	"log/slog"
 	"os"
 )

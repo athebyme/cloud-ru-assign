@@ -1,7 +1,8 @@
 package ports
 
 import (
-	"cloud-ru-assign/internal/core/domain"
+	"github.com/athebyme/cloud-ru-assign/internal/core/domain/balancer"
+	"github.com/athebyme/cloud-ru-assign/internal/core/domain/ratelimit"
 	"net/http"
 	"net/url"
 )
@@ -22,14 +23,26 @@ type HealthChecker interface {
 
 // BackendRepository определяет исходящий порт для управления состоянием и выбором бэкендов
 type BackendRepository interface {
-	GetBackends() []*domain.Backend
+	GetBackends() []*balancer.Backend
 	MarkBackendStatus(backendUrl *url.URL, alive bool)
-	GetNextHealthyBackend() (*domain.Backend, bool)
+	GetNextHealthyBackend() (*balancer.Backend, bool)
+	SetStrategy(strategy string) error
+	GetActiveConnections(backend *balancer.Backend) int
+	IncrementConnections(backend *balancer.Backend)
+	DecrementConnections(backend *balancer.Backend)
 }
 
 // Forwarder определяет исходящий порт для пересылки (проксирования) запроса на бэкенд
 type Forwarder interface {
 	// Forward проксирует входящий запрос r на целевой бэкенд target, используя w для ответа
 	// возвращает ошибку, если операция проксирования не удалась
-	Forward(w http.ResponseWriter, r *http.Request, target *domain.Backend) error
+	Forward(w http.ResponseWriter, r *http.Request, target *balancer.Backend) error
+}
+
+// RateLimiter определяет исходящий порт для проверки ограничений скорости
+type RateLimiter interface {
+	Allow(clientID string) bool
+	SetRateLimit(clientID string, settings *ratelimit.RateLimitSettings) error
+	RemoveRateLimit(clientID string)
+	Stop()
 }
