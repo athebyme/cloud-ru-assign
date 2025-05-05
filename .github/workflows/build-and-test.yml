@@ -44,7 +44,7 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Start services
-        run: docker-compose up -d
+        run: docker compose up -d
 
       - name: Wait for services to be ready
         run: |
@@ -58,14 +58,14 @@ jobs:
             sleep 5
           done
           
-          docker-compose ps
+          docker сompose ps
 
       - name: Run tests
-        run: docker-compose run --rm e2e-tests
+        run: docker compose run --rm e2e-tests
 
       - name: Stop services
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
 
   unit-tests:
     runs-on: ubuntu-latest
