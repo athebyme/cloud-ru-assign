@@ -153,6 +153,25 @@ curl -X DELETE http://localhost:8081/api/v1/ratelimit/clients/user1
 ![пример блокировки запросов](./source/ratelimit-block-example.png)
 
 
+## Важная информация о Rate Limiting
+
+При использовании Rate Limiting API важно понимать, как формируются идентификаторы клиентов:
+
+1. При использовании `X-API-Key` заголовка, система автоматически добавляет префикс `api_`
+2. При идентификации по IP адресу, используется префикс `ip_`
+3. В API для создания/удаления клиентов используйте полный идентификатор включая префикс
+
+Например:
+
+```bash
+# Создание клиента (будет сохранен как "api_my-client")
+curl -X POST http://localhost:8081/api/v1/ratelimit/clients \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": "api_my-client", "capacity": 100, "rate_per_second": 10}'
+
+curl -H "X-API-Key: my-client" http://localhost:8081
+```
+
 
 **Базовый URL:** `/api/v1/ratelimit`
 

@@ -54,7 +54,7 @@ func TestE2E_LoadBalancerFunctionality(t *testing.T) {
 func TestE2E_RateLimiting(t *testing.T) {
 	t.Run("Create rate limit", func(t *testing.T) {
 		settings := map[string]interface{}{
-			"client_id":       "test-client",
+			"client_id":       "api_test-client", // Добавляем префикс "api_"
 			"capacity":        5,
 			"rate_per_second": 1,
 		}
@@ -80,7 +80,7 @@ func TestE2E_RateLimiting(t *testing.T) {
 		client := &http.Client{}
 
 		// Первые 5 запросов должны пройти
-		for i := 0; i < 6; i++ {
+		for i := 0; i < 5; i++ {
 			req, _ := http.NewRequest("GET", baseURL, nil)
 			req.Header.Set("X-API-Key", "test-client")
 
@@ -107,7 +107,6 @@ func TestE2E_RateLimiting(t *testing.T) {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		// TODO: ТУТ 200, а НЕ 429
 		if resp.StatusCode != http.StatusTooManyRequests {
 			t.Errorf("6th request: expected 429, got %d. Body: %s", resp.StatusCode, string(body))
 		}
@@ -144,9 +143,9 @@ func TestE2E_RateLimiting(t *testing.T) {
 			}
 		}
 
-		// Удаляем клиента
+		// Удаляем клиента (с префиксом)
 		client := &http.Client{}
-		req, _ := http.NewRequest("DELETE", baseURL+"/api/v1/ratelimit/clients/test-client", nil)
+		req, _ := http.NewRequest("DELETE", baseURL+"/api/v1/ratelimit/clients/api_test-client", nil)
 
 		deleteResp, err := client.Do(req)
 		if err != nil {
