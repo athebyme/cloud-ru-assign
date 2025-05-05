@@ -50,7 +50,7 @@ jobs:
         run: |
           echo "Waiting for services to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:8081/health; then
+            if curl -s http://localhost:8081/health > /dev/null; then
               echo "Load balancer is ready!"
               break
             fi
@@ -58,7 +58,6 @@ jobs:
             sleep 5
           done
           
-          # Verify all services are running
           docker-compose ps
 
       - name: Run tests
@@ -89,17 +88,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: List files to debug
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Files in current directory:"
-          ls -la
-          echo "Looking for go.mod:"
-          find . -name "go.mod" -type f
-
       - name: Run unit tests
-        run: go test -v -race -coverprofile="coverage.out" "./tests/unit/..."
+        run: |
+          go mod download
+          go test -v -race -coverprofile=coverage.out ./tests/unit/...
 
       - name: Run integration tests
         run: go test -v -race ./tests/integration/...
@@ -133,7 +125,9 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Run benchmarks
-        run: go test -bench=. -benchmem -run=^$ "./tests/integration/..." > benchmark.txt
+        run: |
+          go mod download
+          go test -bench=. -benchmem -run=^$ ./tests/integration/... > benchmark.txt
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
