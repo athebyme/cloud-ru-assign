@@ -88,10 +88,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Run unit tests
+      - name: Debug Go environment
         run: |
+          echo "Go version:"
+          go version
+          echo "Current directory:"
+          pwd
+          echo "Go environment:"
+          go env
+          echo "Content of go.mod:"
+          cat go.mod
+          echo "Checking go.sum:"
+          ls -la go.sum || echo "go.sum not found"
+
+      - name: Initialize Go modules
+        run: |
+          go mod tidy
           go mod download
-          go test -v -race -coverprofile=coverage.out ./tests/unit/...
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.out ./tests/unit/...
 
       - name: Run integration tests
         run: go test -v -race ./tests/integration/...
@@ -124,10 +140,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Run benchmarks
+      - name: Initialize Go modules
         run: |
+          go mod tidy
           go mod download
-          go test -bench=. -benchmem -run=^$ ./tests/integration/... > benchmark.txt
+
+      - name: Run benchmarks
+        run: go test -bench=. -benchmem -run=^$ ./tests/integration/... > benchmark.txt
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
