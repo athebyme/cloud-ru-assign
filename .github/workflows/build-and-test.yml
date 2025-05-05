@@ -99,7 +99,7 @@ jobs:
           find . -name "go.mod" -type f
 
       - name: Run unit tests
-        run: go test -v -race -coverprofile=coverage.out ./tests/unit/...
+        run: go test -v -race -coverprofile="coverage.out" "./tests/unit/..."
 
       - name: Run integration tests
         run: go test -v -race ./tests/integration/...
@@ -133,7 +133,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Run benchmarks
-        run: go test -bench=. -benchmem -run=^$ ./tests/integration/... > benchmark.txt
+        run: go test -bench=. -benchmem -run=^$ "./tests/integration/..." > benchmark.txt
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
