@@ -58,7 +58,7 @@ jobs:
             sleep 5
           done
           
-          docker сompose ps
+          docker compose ps
 
       - name: Run tests
         run: docker compose run --rm e2e-tests
