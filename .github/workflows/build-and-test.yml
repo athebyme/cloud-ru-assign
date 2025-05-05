@@ -89,8 +89,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Download dependencies
-        run: go mod download
+      - name: List files to debug
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Files in current directory:"
+          ls -la
+          echo "Looking for go.mod:"
+          find . -name "go.mod" -type f
 
       - name: Run unit tests
         run: go test -v -race -coverprofile=coverage.out ./tests/unit/...
